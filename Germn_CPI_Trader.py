@@ -1,35 +1,39 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jun 25 09:54:10 2025
-!!!!!!!!!!!!!!!!!!!!!!!     AUD CPI AUDUSD   !!!!!!!!!!!!!!!!!!!!
-Entry:
-Wait 5 minutes after the news release.
-Calculate delta = C_5 - O_0 (close at 5 minutes post-news minus open at news time).
-If delta > 10 pips, enter a long position at O_10.
-If delta < -10 pips, enter a short position at O_10.
-If |delta| ≤ 10 pips, no trade is entered (to filter out noise).
-Note: 1 pip in AUDUSD = 0.0001 (e.g., a move from 0.6500 to 0.6501 is 1 pip).
-Take Profit (TP):
-Long trade: TP = O_10 + 30 pips.
-Short trade: TP = O_10 - 30 pips.
-Stop Loss (SL):
-Long trade: SL = O_10 - 15 pips.
-Short trade: SL = O_10 + 15 pips.
-Exit:
-Monitor each 5-minute candle from t=10 to t=70 (60 minutes after entry).
-For a long trade:
-If H_t ≥ TP, exit at TP.
-If L_t ≤ SL, exit at SL.
-If neither is hit by t=70, close at C_70.
-For a short trade:
-If L_t ≤ TP, exit at TP.
-If H_t ≥ SL, exit at SL.
-If neither is hit by t=70, close at C_70.
-Lot Size: 1 standard lot (100,000 units of AUDUSD).
-Profit/loss in pips is calculated, convertible to USD (1 pip ≈ 10 USD per lot, depending on exchange rate).
-Risk: Maximum loss per trade is 15 pips (SL), or 150 USD per lot at current rates.
+Created on Mon Jun 30 11:07:18 2025
+
+Germn_CPI_Trader
+
+Entry Condition:
+
+Trade 5 minutes post-news (using O_5 as entry price) to avoid initial volatility.
+
+Buy if news is "Good" (actual > forecast), Sell if "Bad" (actual < forecast).
+
+Stop Loss (SL) & Take Profit (TP):
+
+SL: 1.5× the first 5-minute candle range (H_0 - L_0).
+
+TP: 1.0× the first 5-minute candle range.
+
+Rationale: Wider SL accounts for post-news volatility; TP/SL ratio ensures 1:1.5 risk-reward.
+
+Exit Rules:
+
+Close trade if SL/TP is hit within 60 minutes.
+
+If neither is hit, close at 60-minute close (C_60).
+
+Position Sizing:
+
+Risk 1% of account per trade.
+
+Lot size = (Account Balance × 0.01) / (SL in pips × 10)
+*(1 pip = $10 for 1 standard lot)*.
+
 @author: jbriz
 """
+
 import MetaTrader5 as mt5
 import time
 import datetime
@@ -39,9 +43,9 @@ import pytz
 
 # INPUTS
 news_result = 0 # 1 - Good/green, 0 - Bad/red
-news_time  = '12:25pm' #'3:30pm'
+news_time  = '3:00pm' #'3:30pm'
 
-pairs = ['AUDUSD'] #,  'GBPUSD', 'EURUSD', 'USDJPY', 'AUDUSD', 'USDCAD']
+pairs = ['EURUSD', 'EURJPY', 'EURGBP', 'EURCAD'] #,  'GBPUSD', 'EURUSD', 'USDJPY', 'AUDUSD', 'USDCAD']
 
 # # LOGIN TO MT5
 # account = 7002735 #187255335 #51610727
@@ -67,7 +71,7 @@ if not mt5.initialize():
     
 def get_rates(curr_pair, news_time):
     news_time = news_time.minute
-    rates = mt5.copy_rates_from_pos(curr_pair, mt5.TIMEFRAME_M1, 0, 20)
+    rates = mt5.copy_rates_from_pos(curr_pair, mt5.TIMEFRAME_M5, 0, 10)
     rates_frame = pd.DataFrame(rates)
     rates_frame['times'] = pd.to_datetime(rates_frame['time'], unit='s')
     rates_frame['mins'] = rates_frame['times'].dt.minute
@@ -93,10 +97,10 @@ def open_trade(symbol, trade_type, volume, comment, sl, tp):
         "deviation": 10,
               
         # "tp": price * 1.0005 if trade_type == "Buy" else price * 0.9995, # 0.05%
-        "sl": price - (sl * point) if trade_type == "Buy" else price + (sl * point),
-        # "sl": price * 0.999 if trade_type == "Buy" else price * 1.001, # 0.1%
-            
-        "tp": price - (tp * point) if trade_type == "Sell" else price + (tp * point),
+        # "sl": price - (sl * point) if trade_type == "Buy" else price + (sl * point),
+        "sl": price - sl if trade_type == "Buy" else price + sl, # 0.1%
+        "tp": price + tp if trade_type == "Buy" else price - tp, # 0.1%  
+        # "tp": price - (tp * point) if trade_type == "Sell" else price + (tp * point),
         "magic": 123,
         "comment": comment,
         "type_time": mt5.ORDER_TIME_GTC,
@@ -175,7 +179,7 @@ def pend_trade(symbol, trade_type, volume, comment, price, hi, lo, sl, tp, exp_m
 # CONDITIONS TO PLACE TRADES FOR VARIOUS PAIRS  
 # trade_time = '03:35pm'
 trade_mins = 5
-close_mins = 15
+close_mins = 60
 # news_time  = '12:37pm'
 tz = pytz.timezone('Europe/Nicosia')
 mt5_now = datetime.datetime.now(tz) 
@@ -201,26 +205,30 @@ if trade_time > datetime.datetime.now(tz):
         delta = close_price - news_open
         print('close price @ ', trade_time , ' : ', close_price)
         print('open price @ ', event_time , ' : ', news_open)
-        sl = 100
-        tp = 300
+        sl = (hi - lo)*1.5
+        tp = (hi - lo)*1.0
         exp_mins = 10
-        # if news_result == 0: # bad for usd, buy xauusd
-        if delta > 10 * point:
+        if news_result == 1: # Good for EUR, BUY EURUSD
+        # if delta > 10 * point:
             close_price = close_price + 1
             # pend_trade(pair, 'Buy', 1.0, 'auto CPI', close_price, hi, lo, sl, tp, exp_mins)
             open_trade(pair, 'Buy', 1.0, 'auto CPI', sl, tp)
-        elif delta < -10 * point: # news_result == 1: # good for usd, sell xauusd
+        elif news_result == 0: # Bad for EUR, SELL EURUSD
+        # elif delta < -10 * point: # news_result == 1: # good for usd, sell xauusd
             close_price = close_price - 1
             # pend_trade(pair, 'Sell', 1.0, 'auto CPI', close_price, hi, lo, sl, tp, exp_mins)
             open_trade(pair, 'Sell', 1.0, 'auto CPI', sl, tp)
         else:
             print('Delta less than 10. No Trades!')
-        time.sleep(3)
+        time.sleep(1)
 
 
 if close_time > datetime.datetime.now(tz):
     print('ALL trades close in: ', (close_time - (datetime.datetime.now(tz) - datetime.timedelta(seconds=2))).total_seconds(), ' seconds')
-    time.sleep((close_time - (datetime.datetime.now(tz) - datetime.timedelta(seconds=3))).total_seconds())
+    pause_time = (close_time - (datetime.datetime.now(tz) - datetime.timedelta(seconds=3))).total_seconds()
+    for i in range(100):
+        
+        time.sleep(pause_time/100)
     positions = mt5.positions_get()
     for position in positions:
         close_result = close_position(position)

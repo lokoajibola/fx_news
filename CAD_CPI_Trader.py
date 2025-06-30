@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jun 25 09:54:10 2025
-!!!!!!!!!!!!!!!!!!!!!!!     AUD CPI AUDUSD   !!!!!!!!!!!!!!!!!!!!
+Created on Thu Jun 26 09:27:53 2025
+
+CAD CPI TRADER
+
 Entry:
 Wait 5 minutes after the news release.
 Calculate delta = C_5 - O_0 (close at 5 minutes post-news minus open at news time).
 If delta > 10 pips, enter a long position at O_10.
 If delta < -10 pips, enter a short position at O_10.
 If |delta| ≤ 10 pips, no trade is entered (to filter out noise).
-Note: 1 pip in AUDUSD = 0.0001 (e.g., a move from 0.6500 to 0.6501 is 1 pip).
+Note: 1 pip in CADJPY = 0.01 (e.g., a move from 88.00 to 88.01 is 1 pip).
 Take Profit (TP):
 Long trade: TP = O_10 + 30 pips.
 Short trade: TP = O_10 - 30 pips.
@@ -25,11 +27,14 @@ For a short trade:
 If L_t ≤ TP, exit at TP.
 If H_t ≥ SL, exit at SL.
 If neither is hit by t=70, close at C_70.
-Lot Size: 1 standard lot (100,000 units of AUDUSD).
-Profit/loss in pips is calculated, convertible to USD (1 pip ≈ 10 USD per lot, depending on exchange rate).
-Risk: Maximum loss per trade is 15 pips (SL), or 150 USD per lot at current rates.
+Lot Size: 1 standard lot (100,000 units of CADJPY).
+Profit/loss in pips is calculated, convertible to JPY (1 pip ≈ 100 JPY per lot, depending on exchange rate).
+Risk: Maximum loss per trade is 15 pips (SL), or 1,500 JPY per lot at current rates.
+
 @author: jbriz
 """
+
+
 import MetaTrader5 as mt5
 import time
 import datetime
@@ -39,9 +44,9 @@ import pytz
 
 # INPUTS
 news_result = 0 # 1 - Good/green, 0 - Bad/red
-news_time  = '12:25pm' #'3:30pm'
+news_time  = '11:25am' #'3:30pm'
 
-pairs = ['AUDUSD'] #,  'GBPUSD', 'EURUSD', 'USDJPY', 'AUDUSD', 'USDCAD']
+pairs = ['CADJPY'] #,  'GBPUSD', 'EURUSD', 'USDJPY', 'AUDUSD', 'USDCAD']
 
 # # LOGIN TO MT5
 # account = 7002735 #187255335 #51610727
@@ -192,15 +197,13 @@ if trade_time > datetime.datetime.now(tz):
     print('Eventime: ', event_time, ' || Tradetime: ', trade_time)
     print('Nowtime: ', datetime.datetime.now(tz))
     print('time to wait: ', (trade_time - (datetime.datetime.now(tz) - datetime.timedelta(seconds=2))).total_seconds(), ' seconds')
-    time.sleep((trade_time - (datetime.datetime.now(tz) - datetime.timedelta(seconds=5))).total_seconds())
+    time.sleep((trade_time - (datetime.datetime.now(tz) - datetime.timedelta(seconds=3))).total_seconds())
     # time.sleep(30)
     # XAUUSD
     for pair in pairs:
         hi, lo, close_price, news_open = get_rates(pair, event_time)
         point = mt5.symbol_info(pair).point
         delta = close_price - news_open
-        print('close price @ ', trade_time , ' : ', close_price)
-        print('open price @ ', event_time , ' : ', news_open)
         sl = 100
         tp = 300
         exp_mins = 10
@@ -219,7 +222,7 @@ if trade_time > datetime.datetime.now(tz):
 
 
 if close_time > datetime.datetime.now(tz):
-    print('ALL trades close in: ', (close_time - (datetime.datetime.now(tz) - datetime.timedelta(seconds=2))).total_seconds(), ' seconds')
+    print()
     time.sleep((close_time - (datetime.datetime.now(tz) - datetime.timedelta(seconds=3))).total_seconds())
     positions = mt5.positions_get()
     for position in positions:
