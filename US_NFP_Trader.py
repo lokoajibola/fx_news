@@ -58,14 +58,13 @@ close_mins = 120
 pairs = ['XAUUSD'] # , 'EURJPY', 'EURGBP', 'EURCAD'] #,  'GBPUSD', 'EURUSD', 'USDJPY', 'AUDUSD', 'USDCAD']
 
 # # LOGIN TO MT5
-# account = 7002735 #187255335 #51610727
-# mt5.initialize("C:/Program Files/MetaTrader 5 IC Markets (SC)/terminal64.exe")
-# authorized=mt5.login(account, password="xxxxxxxx", server = "ICMarketsSC-MT5-2")
-
-# 1. LOGIN TO MT5
-account = 51962256
+import os
+account = int(os.getenv('MT5_ACCOUNT'))
+password = os.getenv('MT5_PASSWORD')
+server = os.getenv('MT5_SERVER')
 mt5.initialize("C:/Program Files/FxPro - MetaTrader 5/terminal64.exe")
-authorized=mt5.login(account, password="1nojf!W@MEUAz8", server = "mt5-demo.icmarkets.com")
+authorized=mt5.login(account, password = password, server = server)
+
 
 if authorized:
     print("Connected: Connecting to MT5 Client")
@@ -240,4 +239,5 @@ if close_time > datetime.datetime.now(tz):
         time.sleep(pause_time/100)
     positions = mt5.positions_get()
     for position in positions:
+
         close_result = close_position(position)
