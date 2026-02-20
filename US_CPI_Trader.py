@@ -21,14 +21,13 @@ news_time  = '3:30pm'
 pairs = ['XAUUSD'] #,  'GBPUSD', 'EURUSD', 'USDJPY', 'AUDUSD', 'USDCAD']
 
 # # LOGIN TO MT5
-# account = 7002735 #187255335 #51610727
-# mt5.initialize("C:/Program Files/MetaTrader 5 IC Markets (SC)/terminal64.exe")
-# authorized=mt5.login(account, password="xxxxxxxx", server = "ICMarketsSC-MT5-2")
-
-# 1. LOGIN TO MT5
-account = 51962256
+import os
+account = int(os.getenv('MT5_ACCOUNT'))
+password = os.getenv('MT5_PASSWORD')
+server = os.getenv('MT5_SERVER')
 mt5.initialize("C:/Program Files/FxPro - MetaTrader 5/terminal64.exe")
-authorized=mt5.login(account, password="1nojf!W@MEUAz8", server = "mt5-demo.icmarkets.com")
+authorized=mt5.login(account, password = password, server = server)
+
 
 if authorized:
     print("Connected: Connecting to MT5 Client")
@@ -126,5 +125,6 @@ for pair in pairs:
         pend_trade(pair, 'Sell', 1.0, 'auto CPI', close_price, hi, lo, sl, tp, exp_mins)
     
     time.sleep(3)
+
 
 
